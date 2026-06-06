@@ -545,6 +545,17 @@
     .message.system .message-bubble .system-label { display: inline-block; background: var(--system-border); color: white; padding: 2px 8px; border-radius: 4px; font-size: var(--font-size-xs); margin-bottom: 8px; font-weight: 500; }
     .message.memory .message-bubble { background: var(--memory-bg); color: var(--memory-text); border: 1px solid var(--memory-border); border-bottom-left-radius: 6px; }
     .message.memory .message-bubble .memory-label { display: inline-block; background: var(--memory-border); color: white; padding: 2px 8px; border-radius: 4px; font-size: var(--font-size-xs); margin-bottom: 8px; font-weight: 500; }
+    .message.thinking .message-avatar-wrapper, .message.tool .message-avatar-wrapper { margin-right: 10px; }
+    .message.thinking .message-avatar, .message.tool .message-avatar { background: var(--bg); opacity: 0.75; }
+    .message.thinking .message-bubble, .message.tool .message-bubble { background: transparent; color: var(--text-light); border-left: 3px solid var(--border); border-radius: 6px; padding: 8px 14px; }
+    .message.thinking .message-bubble { font-style: italic; font-size: var(--font-size-sm); }
+    .message.tool .message-bubble { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: var(--font-size-sm); }
+    .aux-label { display: inline-block; cursor: pointer; user-select: none; padding: 2px 8px; border-radius: 4px; font-size: var(--font-size-xs); margin-bottom: 6px; font-weight: 500; background: var(--border); color: var(--text); opacity: 0.85; }
+    .aux-label::before { content: '▸ '; }
+    .aux-body { white-space: pre-wrap; }
+    .message.aux-collapsed .aux-label::before { content: '▸ '; }
+    .message.aux-collapsed .aux-body { display: none; }
+    .message:not(.aux-collapsed) .aux-label::before { content: '▾ '; }
     .message-footer { display: flex; align-items: center; gap: 8px; margin-top: 4px; padding: 0 4px; flex-wrap: wrap; }
     .message.user .message-footer { flex-direction: row-reverse; }
     .message-time { font-size: var(--font-size-xs); color: var(--text-light); }
@@ -1604,7 +1615,7 @@
     function performGlobalSearch(keyword) {
       globalSearchResults = []; flatSearchResults = [];
       allConversations.forEach(conv => {
-        const messages = parseMessages(conv.mapping, conv.current_node);
+        const messages = getMessages(conv);
         const matches = [];
         messages.forEach(msg => {
           if (msg.content.toLowerCase().includes(keyword)) {
@@ -1804,9 +1815,7 @@
             if (depth === 0) {
               const jsonStr = buffer.substring(objStart, j + 1);
               try {
-                const conv = JSON.parse(jsonStr);
-                const pid = conv.conversation_id || conv.id;
-                conv.id = pid; conv.conversation_id = pid;
+                const conv = normalizeImportedConv(JSON.parse(jsonStr));
                 const existIdx = allConversations.findIndex(c => c.conversation_id === conv.conversation_id || c.id === conv.id);
                 if (existIdx >= 0) {
                   const ex = allConversations[existIdx];
@@ -1831,7 +1840,7 @@
     async function processFile(file) {
       const text = await readFileAsText(file);
       let data = JSON.parse(text), newConvs = Array.isArray(data) ? data : [data];
-      newConvs = newConvs.map(c => { const pid = c.conversation_id || c.id; c.id = pid; c.conversation_id = pid; return c; });
+      newConvs = newConvs.map(c => normalizeImportedConv(c));
       let addedCount = 0, updatedCount = 0;
       for (const conv of newConvs) {
         const existIdx = allConversations.findIndex(c => c.conversation_id === conv.conversation_id || c.id === conv.id);
@@ -1846,7 +1855,7 @@
       allConversations.sort((a, b) => (a.create_time || 0) - (b.create_time || 0));
       filteredConversations = [...allConversations];
       allConversations.forEach((conv, convIndex) => {
-        const messages = parseMessages(conv.mapping, conv.current_node);
+        const messages = getMessages(conv);
         let totalChars = 0; messages.forEach(m => totalChars += m.content.length);
         conversationStats[conv.id] = { messageCount: messages.length, totalChars, estimatedTokens: Math.round(totalChars / 2.5) };
         messages.forEach(msg => {
@@ -1876,6 +1885,64 @@
         monthStatsCache[monthKey].days[ds] = dayWords;
       });
       renderConversationList(); updateDrawerSubtitle(); renderCalendar(); renderTimeline(); updateConvFilterOptions();
+    }
+    function normalizeImportedConv(conv) {
+      // Claude export: conversation has chat_messages array and no mapping
+      if (conv && Array.isArray(conv.chat_messages) && !conv.mapping) {
+        const cid = conv.uuid || conv.conversation_id || conv.id;
+        conv.id = conv.conversation_id = cid;
+        conv.title = conv.name || conv.title || '未命名对话';
+        conv.create_time = Math.floor(Date.parse(conv.created_at) / 1000) || 0;
+        conv.update_time = Math.floor(Date.parse(conv.updated_at || conv.created_at) / 1000) || conv.create_time;
+        return conv;
+      }
+      // ChatGPT path (unchanged): key off conversation_id || id
+      const pid = conv.conversation_id || conv.id;
+      conv.id = pid; conv.conversation_id = pid;
+      return conv;
+    }
+    function getMessages(conv) {
+      if (conv && conv.mapping) return parseMessages(conv.mapping, conv.current_node);
+      if (conv && Array.isArray(conv.chat_messages)) return parseClaudeMessages(conv.chat_messages);
+      return [];
+    }
+    function parseClaudeMessages(chatMessages) {
+      if (!Array.isArray(chatMessages)) return [];
+      const messages = [];
+      chatMessages.forEach((msg, idx) => {
+        if (!msg) return;
+        const role = msg.sender === 'human' ? 'user' : 'assistant';
+        const time = Math.floor(Date.parse(msg.created_at) / 1000) || 0;
+        const baseId = msg.uuid || `cmsg_${idx}`;
+        let blocks = Array.isArray(msg.content) ? msg.content : [];
+        if (blocks.length === 0 && msg.text) blocks = [{ type: 'text', text: msg.text }];
+        let textParts = [];
+        let blockIdx = 0;
+        for (const item of blocks) {
+          if (!item || typeof item !== 'object') continue;
+          const t = item.type;
+          if (t === 'text') {
+            const tx = (item.text || '').trim();
+            if (tx) textParts.push(tx);
+          } else if (t === 'thinking') {
+            const th = (item.thinking || '').trim();
+            if (th) messages.push({ id: `${baseId}#${blockIdx++}`, role: 'assistant', type: 'thinking', content: th, time, model: null });
+          } else if (t === 'tool_use') {
+            const c = '🔧 ' + (item.name || 'tool') + '\n' + '```json\n' + JSON.stringify(item.input || {}, null, 2) + '\n```';
+            messages.push({ id: `${baseId}#${blockIdx++}`, role: 'assistant', type: 'tool', content: c, time, model: null });
+          } else if (t === 'tool_result') {
+            const c = '🔧 result\n' + (typeof item.content === 'string' ? item.content : JSON.stringify(item.content));
+            messages.push({ id: `${baseId}#${blockIdx++}`, role: 'assistant', type: 'tool', content: c, time, model: null });
+          }
+          // token_budget, flag and unknown types are ignored
+        }
+        if (textParts.length > 0) {
+          messages.push({ id: `${baseId}#${blockIdx++}`, role, type: 'normal', content: textParts.join('\n\n'), time, model: null });
+        }
+      });
+      const deduped = [];
+      for (const m of messages) { if (!deduped.some(x => x.time === m.time && x.content === m.content && x.role === m.role)) deduped.push(m); }
+      return deduped;
     }
     function parseMessages(mapping, currentNode) {
       if (!mapping) return [];
@@ -1932,7 +1999,7 @@
       } else if (format === 'md') {
         let et = `# 对话导出\n\n> 导出时间: ${new Date().toLocaleString('zh-CN')}  \n> 共 ${sc.length} 个对话\n\n---\n\n`;
         sc.forEach(conv => {
-          const messages = parseMessages(conv.mapping, conv.current_node);
+          const messages = getMessages(conv);
           et += `## 📚 ${conv.title || '未命名对话'}\n\n`;
           messages.forEach(msg => {
             if (msg.type === 'custom_instructions' || msg.type === 'memory_update' || msg.type === 'memory_call') return;
@@ -1945,7 +2012,7 @@
       } else if (format === 'txt') {
         let et = `对话导出\n导出时间: ${new Date().toLocaleString('zh-CN')}\n共 ${sc.length} 个对话\n${'='.repeat(50)}\n`;
         sc.forEach(conv => {
-          const messages = parseMessages(conv.mapping, conv.current_node);
+          const messages = getMessages(conv);
           et += `\n\n${'═'.repeat(50)}\n📚 ${conv.title || '未命名对话'}\n${'─'.repeat(50)}\n`;
           messages.forEach(msg => {
             if (msg.type === 'custom_instructions' || msg.type === 'memory_update' || msg.type === 'memory_call') return;
@@ -1970,7 +2037,7 @@
       if (!conv) return; 
       currentConvId = convId; 
       currentConvIndex = allConversations.indexOf(conv); 
-      currentMessages = parseMessages(conv.mapping, conv.current_node); 
+      currentMessages = getMessages(conv); 
       document.getElementById('chat-title').textContent = conv.title || '未命名对话'; 
       saveLastViewedConv(convId);
       const kwToHighlight = highlightKeyword || null;
@@ -2001,6 +2068,8 @@
         let dc = renderMarkdown(msg.content); if (highlightKw) dc = highlightKeywordInHtml(dc, highlightKw);
         if (msg.type === 'custom_instructions') { html += `<div class="message system" id="msg-${msg.id}" data-date="${ds}"><div class="message-avatar-wrapper"><div class="message-avatar">⚙️</div></div><div class="message-body"><div class="message-bubble"><span class="system-label">📋 窗口自定义指令</span><div style="white-space: pre-wrap;">${dc}</div></div></div></div>`; }
         else if (msg.type === 'memory_update' || msg.type === 'memory_call') { html += `<div class="message memory" id="msg-${msg.id}" data-date="${ds}"><div class="message-avatar-wrapper"><div class="message-avatar">🧠</div></div><div class="message-body"><div class="message-bubble"><span class="memory-label">💾 记忆库操作</span><div style="white-space: pre-wrap;">${dc}</div></div><div class="message-footer"><span class="message-time">${msg.time ? formatFullDateTime(msg.time) : ''}</span></div></div></div>`; }
+        else if (msg.type === 'thinking') { html += `<div class="message thinking aux-collapsed" id="msg-${msg.id}" data-date="${ds}"><div class="message-avatar-wrapper"><div class="message-avatar">💭</div></div><div class="message-body"><div class="message-bubble"><span class="aux-label" onclick="this.closest('.message').classList.toggle('aux-collapsed')">💭 思考过程</span><div class="aux-body">${dc}</div></div></div></div>`; }
+        else if (msg.type === 'tool') { html += `<div class="message tool aux-collapsed" id="msg-${msg.id}" data-date="${ds}"><div class="message-avatar-wrapper"><div class="message-avatar">🔧</div></div><div class="message-body"><div class="message-bubble"><span class="aux-label" onclick="this.closest('.message').classList.toggle('aux-collapsed')">🔧 工具调用</span><div class="aux-body">${dc}</div></div></div></div>`; }
         else {
           const isFav = favorites.has(msg.id), mb = msg.model ? `<span class="message-model">${formatModelName(msg.model)}</span>` : '', an = msg.role === 'user' ? userName : aiName;
           const convIdForFav = msg.convId || currentConvId;
