@@ -1816,13 +1816,15 @@
               const jsonStr = buffer.substring(objStart, j + 1);
               try {
                 const conv = normalizeImportedConv(JSON.parse(jsonStr));
-                const existIdx = allConversations.findIndex(c => c.conversation_id === conv.conversation_id || c.id === conv.id);
-                if (existIdx >= 0) {
-                  const ex = allConversations[existIdx];
-                  if ((conv.update_time || conv.create_time || 0) >= (ex.update_time || ex.create_time || 0)) {
-                    allConversations[existIdx] = conv; await saveConversationToDb(conv); updatedCount++;
-                  }
-                } else { allConversations.push(conv); await saveConversationToDb(conv); addedCount++; }
+                if (getMessages(conv).length > 0) {
+                  const existIdx = allConversations.findIndex(c => c.conversation_id === conv.conversation_id || c.id === conv.id);
+                  if (existIdx >= 0) {
+                    const ex = allConversations[existIdx];
+                    if ((conv.update_time || conv.create_time || 0) >= (ex.update_time || ex.create_time || 0)) {
+                      allConversations[existIdx] = conv; await saveConversationToDb(conv); updatedCount++;
+                    }
+                  } else { allConversations.push(conv); await saveConversationToDb(conv); addedCount++; }
+                }
               } catch (e) { console.warn('跳过无法解析的对象', e); }
               objStart = -1; inString = false; escape = false;
               for (let k = j + 1; k < buffer.length; k++) {
@@ -1843,6 +1845,7 @@
       newConvs = newConvs.map(c => normalizeImportedConv(c));
       let addedCount = 0, updatedCount = 0;
       for (const conv of newConvs) {
+        if (getMessages(conv).length === 0) continue;
         const existIdx = allConversations.findIndex(c => c.conversation_id === conv.conversation_id || c.id === conv.id);
         if (existIdx >= 0) { const ex = allConversations[existIdx]; if ((conv.update_time || conv.create_time || 0) >= (ex.update_time || ex.create_time || 0)) { allConversations[existIdx] = conv; await saveConversationToDb(conv); updatedCount++; } }
         else { allConversations.push(conv); await saveConversationToDb(conv); addedCount++; }
