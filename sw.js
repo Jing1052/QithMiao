@@ -1,4 +1,4 @@
-const CACHE = 'qithmiao-v2';
+const CACHE = 'qithmiao-v3';
 const CORE = [
   './', 'index.html', 'manifest.json',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png',
