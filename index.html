@@ -369,6 +369,15 @@
     .pattern-option.custom.active.has-image::after { color: white; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
     .pattern-option.custom .bg-delete { position: absolute; top: -4px; right: -4px; width: 16px; height: 16px; background: var(--danger); color: white; border-radius: 50%; font-size: 10px; display: none; align-items: center; justify-content: center; cursor: pointer; line-height: 1; z-index: 3; }
     .pattern-option.custom.has-image:hover .bg-delete { display: flex; }
+    .bgcolor-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .bgcolor-swatch { width: 30px; height: 30px; border-radius: 8px; cursor: pointer; border: 2px solid var(--border); position: relative; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+    .bgcolor-swatch.active { border-color: var(--primary); box-shadow: 0 0 0 2px var(--primary-light); }
+    .bgcolor-swatch.default { background: var(--bg); }
+    .bgcolor-swatch.default .x { font-size: 14px; color: var(--text-light); }
+    .bgcolor-swatch.custom-pick .pk { font-size: 15px; }
+    .bgcolor-swatch.custom-pick input[type=color] { position: absolute; inset: 0; width: 100%; height: 100%; opacity: 0; border: none; padding: 0; cursor: pointer; }
+    .opacity-slider { width: 100%; accent-color: var(--primary); }
+    #bgopacity-val { color: var(--text-light); font-weight: normal; }
     .pattern-label { font-size: 0.6rem; text-align: center; margin-top: 2px; color: var(--text-light); }
     
     /* 头像上传 */
@@ -1040,6 +1049,8 @@
   <div class="settings-section"><label class="settings-label">自定义头像</label><div class="avatar-upload-section"><div class="avatar-upload-item"><div class="avatar-upload-preview" id="user-avatar-preview" onclick="document.getElementById('user-avatar-input').click()">🧸<span class="avatar-delete" onclick="event.stopPropagation(); deleteAvatar('user')">×</span></div><span class="avatar-upload-label">用户</span><input type="file" id="user-avatar-input" class="avatar-upload-input" accept="image/*" onchange="handleAvatarUpload(event, 'user')"></div><div class="avatar-upload-item"><div class="avatar-upload-preview" id="ai-avatar-preview" onclick="document.getElementById('ai-avatar-input').click()">🤖<span class="avatar-delete" onclick="event.stopPropagation(); deleteAvatar('ai')">×</span></div><span class="avatar-upload-label">助手</span><input type="file" id="ai-avatar-input" class="avatar-upload-input" accept="image/*" onchange="handleAvatarUpload(event, 'ai')"></div></div></div>
   <div class="settings-section"><label class="settings-label">主题颜色</label><div class="theme-selector"><div class="theme-dot pink active" data-theme="pink" onclick="selectTheme('pink')" title="樱花粉"></div><div class="theme-dot brown" data-theme="brown" onclick="selectTheme('brown')" title="奶茶棕"></div><div class="theme-dot blue" data-theme="blue" onclick="selectTheme('blue')" title="雾霾蓝"></div><div class="theme-dot purple" data-theme="purple" onclick="selectTheme('purple')" title="香芋紫"></div><div class="theme-dot green" data-theme="green" onclick="selectTheme('green')" title="抹茶绿"></div><div class="theme-dot red" data-theme="red" onclick="selectTheme('red')" title="深红"></div><div class="theme-dot dark" data-theme="dark" onclick="selectTheme('dark')" title="夜间模式"></div></div></div>
   <div class="settings-section"><label class="settings-label">聊天背景</label><div class="pattern-selector"><div class="pattern-option none active" data-pattern="none" onclick="selectPattern('none')" title="无"><div class="pattern-preview"></div></div><div class="pattern-option grid" data-pattern="grid" onclick="selectPattern('grid')" title="格纹"><div class="pattern-preview"></div></div><div class="pattern-option dots" data-pattern="dots" onclick="selectPattern('dots')" title="波点"><div class="pattern-preview"></div></div><div class="pattern-option stripes" data-pattern="stripes" onclick="selectPattern('stripes')" title="条纹"><div class="pattern-preview"></div></div><div class="pattern-option custom" data-pattern="custom" onclick="handleCustomBgClick()" title="自定义"><div class="pattern-preview" id="custom-bg-preview"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><polyline points="21 15 16 10 5 21"/></svg></div><span class="bg-delete" onclick="event.stopPropagation(); deleteCustomBg()">×</span></div><input type="file" id="bg-upload-input" class="avatar-upload-input" accept="image/*" onchange="handleBgUpload(event)"></div></div>
+  <div class="settings-section"><label class="settings-label">背景颜色</label><div class="bgcolor-row" id="bgcolor-row"><span class="bgcolor-swatch default active" data-color="" onclick="setBgColor('')" title="默认"><span class="x">⊘</span></span><span class="bgcolor-swatch" data-color="#fff0f3" style="background:#fff0f3" onclick="setBgColor('#fff0f3')"></span><span class="bgcolor-swatch" data-color="#ffe6d6" style="background:#ffe6d6" onclick="setBgColor('#ffe6d6')"></span><span class="bgcolor-swatch" data-color="#fdeac8" style="background:#fdeac8" onclick="setBgColor('#fdeac8')"></span><span class="bgcolor-swatch" data-color="#e7e0f5" style="background:#e7e0f5" onclick="setBgColor('#e7e0f5')"></span><span class="bgcolor-swatch" data-color="#d8ece4" style="background:#d8ece4" onclick="setBgColor('#d8ece4')"></span><span class="bgcolor-swatch" data-color="#241a14" style="background:#241a14" onclick="setBgColor('#241a14')"></span><label class="bgcolor-swatch custom-pick" title="自定义颜色"><input type="color" id="bg-color-input" oninput="setBgColor(this.value)"><span class="pk">🎨</span></label></div></div>
+  <div class="settings-section"><label class="settings-label">背景透明度 <span id="bgopacity-val">100%</span></label><input type="range" min="20" max="100" value="100" id="bg-opacity-slider" class="opacity-slider" oninput="setBgOpacity(this.value)"></div>
   <div class="settings-section"><label class="settings-label">聊天字体</label><select class="font-selector" id="settings-font" onchange="selectFont(this.value)"><option value="system">系统默认</option><option value="naikai">内海简体</option><option value="moonstars">月星楷</option><option value="jason">清松手写体</option><option value="pingfang">平方时光体</option><option value="cococheese">小可奶酪体</option><option value="zcool">站酷快乐体</option><option value="ZZJmarkpen">宅在家麦克笔</option><option value="ZLabsBitmap">ZLabsBitmap像素</option><option value="KURIYAMAKOUCHI">栗山巧緻フォント</option></select></div>
   <div class="settings-section"><label class="settings-label">字体大小</label><div class="fontsize-selector"><input type="range" class="fontsize-slider" id="fontsize-slider" min="12" max="18" value="14" oninput="selectFontSizeBySlider(this.value)"></div></div><div class="settings-buttons"><button class="modal-btn primary" onclick="saveSettings()">保存</button><button class="modal-btn cancel" onclick="closeSettings()">取消</button></div></div></div>
   <div class="toast" id="toast"></div>
@@ -1207,7 +1218,7 @@
     const PAGE_SIZE = 2000;
     let paginationState = { messages: [], renderedCount: 0, highlightKw: null, showConvTitle: false, isPaginated: false };
     let searchMode = 'current', globalSearchResults = [], currentSearchResultIndex = -1, flatSearchResults = [], isHeaderCollapsed = false;
-    let appSettings = { userName: '', aiName: '', theme: 'pink', fontSize: 14, pattern: 'none', userAvatar: '', aiAvatar: '', customBg: '', fontFamily: 'system' };
+    let appSettings = { userName: '', aiName: '', theme: 'pink', fontSize: 14, pattern: 'none', userAvatar: '', aiAvatar: '', customBg: '', bgColor: '', bgOpacity: 100, fontFamily: 'system' };
     let currentSearchKeyword = '';
     let isComposing = false;
     let chartMode = 'heatmap';
@@ -1409,22 +1420,47 @@
       document.querySelectorAll('.message-bubble').forEach(el => { el.style.fontFamily = fontFamily; });
     }
     
+    function hexToRgba(hex, a) {
+      if (!hex) return `rgba(255,255,255,${a})`;
+      let h = String(hex).replace('#', '');
+      if (h.length === 3) h = h.split('').map(c => c + c).join('');
+      const n = parseInt(h, 16);
+      if (isNaN(n)) return `rgba(255,255,255,${a})`;
+      return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${a})`;
+    }
     function applyPattern() {
       const chatMessages = document.getElementById('chat-messages');
       const dayMessages = document.getElementById('day-messages-container');
+      const op = (typeof appSettings.bgOpacity === 'number' ? appSettings.bgOpacity : 100) / 100;
+      const overlayAlpha = Math.max(0, 1 - op);
+      const col = appSettings.bgColor || '';
+      const overlay = hexToRgba(col || '#ffffff', overlayAlpha);
       [chatMessages, dayMessages].forEach(container => {
         if (!container) return;
-        if (appSettings.pattern === 'none') {
+        container.style.backgroundColor = col;
+        if (appSettings.pattern === 'custom' && appSettings.customBg) {
+          container.setAttribute('data-pattern', 'custom');
+          container.style.backgroundImage = overlayAlpha > 0
+            ? `linear-gradient(${overlay}, ${overlay}), url(${appSettings.customBg})`
+            : `url(${appSettings.customBg})`;
+        } else if (appSettings.pattern === 'none') {
           container.removeAttribute('data-pattern');
           container.style.backgroundImage = '';
-        } else if (appSettings.pattern === 'custom' && appSettings.customBg) {
-          container.setAttribute('data-pattern', 'custom');
-          container.style.backgroundImage = `url(${appSettings.customBg})`;
         } else {
           container.setAttribute('data-pattern', appSettings.pattern);
           container.style.backgroundImage = '';
         }
       });
+    }
+    function setBgColor(c) {
+      appSettings.bgColor = c || '';
+      document.querySelectorAll('.bgcolor-swatch[data-color]').forEach(sw => sw.classList.toggle('active', sw.dataset.color === (c || '')));
+      applyPattern(); saveSettingsToStorage();
+    }
+    function setBgOpacity(v) {
+      appSettings.bgOpacity = +v;
+      const el = document.getElementById('bgopacity-val'); if (el) el.textContent = v + '%';
+      applyPattern(); saveSettingsToStorage();
     }
     
     function handleBgUpload(event) {
@@ -1553,6 +1589,11 @@
       updateAvatarPreview('user', appSettings.userAvatar);
       updateAvatarPreview('ai', appSettings.aiAvatar);
       updateCustomBgPreview();
+      const _bc = document.getElementById('bg-color-input'); if (_bc) _bc.value = (appSettings.bgColor && /^#/.test(appSettings.bgColor)) ? appSettings.bgColor : '#ffe6d6';
+      document.querySelectorAll('.bgcolor-swatch[data-color]').forEach(sw => sw.classList.toggle('active', sw.dataset.color === (appSettings.bgColor || '')));
+      const _op = (typeof appSettings.bgOpacity === 'number' ? appSettings.bgOpacity : 100);
+      const _os = document.getElementById('bg-opacity-slider'); if (_os) _os.value = _op;
+      const _ov = document.getElementById('bgopacity-val'); if (_ov) _ov.textContent = _op + '%';
       document.getElementById('settings-overlay').classList.add('show'); toggleDrawer(false);
     }
     function closeSettings() { document.getElementById('settings-overlay').classList.remove('show'); }
